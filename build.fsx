@@ -21,7 +21,7 @@ open Suave.Web
 open Suave.Logging
 open Microsoft.FSharp.Compiler.Interactive.Shell
 open FSharp.Data
-open wpgdotnet
+open WpgDotNet
 
 // --------------------------------------------------------------------------------------
 // The following uses FileSystemWatcher to look for changes in 'app.fsx'. When
@@ -63,13 +63,18 @@ let reloadScript () =
 
 let currentApp = ref (fun _ -> async { return None })
 
-
 let customErrorHandler (ex : Exception) msg (ctx : HttpContext) =
-    ctx.runtime.logger.Log LogLevel.Error (fun _ ->
-            LogLine.mk "Suave.Web.defaultErrorHandler" LogLevel.Error
-                        ctx.request.trace (Some ex)
-                        msg)
-    wpgdotnet.INTERNAL_ERROR ex ctx 
+    ctx.runtime.logger.Log LogLevel.Error (fun _ -> 
+      LogLine.mk "Awesome Error Handler" LogLevel.Error ctx.request.trace (Some ex) msg
+    )
+    let jsonVal s = Commons.ExceptionJson.Root(message=s).JsonValue.ToString()
+    match ex with 
+    | Failure(s) -> Commons.FiveHundred (jsonVal "Failure!!!!") ctx
+    | Commons.SlackException(s) -> Commons.FiveHundred (jsonVal "SlackException!!!!") ctx
+    |_ -> 
+      let internalErrText = Commons.ExceptionJson.Root(message=HTTP_500.message).JsonValue.ToString()
+      Response.response HTTP_400 (Encoding.UTF8.GetBytes (internalErrText)) ctx
+    // Commons.INTERNAL_ERROR ex ctx 
             
 let serverConfig =
   { defaultConfig with
